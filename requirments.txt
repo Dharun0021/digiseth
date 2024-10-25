@@ -1,0 +1,9 @@
+pyserial
+asyncio
+websocket
+tkinter
+matplotlib
+numpy
+threading
+signal
+sys

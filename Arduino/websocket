@@ -1,0 +1,74 @@
+#include <ESP8266WiFi.h>
+#include <WebSocketsClient.h>
+
+#define SOUND_SENSOR_PIN D8
+
+const char* ssid = "sree";
+const char* password = "123456789";
+const char* websocketServerHost = " 192.168.77.44";  // Local IP of your WebSocket server
+const uint16_t websocketServerPort = 8080;  // WebSocket server port
+
+WebSocketsClient webSocket;
+
+float phase = 0;
+const float phaseIncrement = 0.01;
+int amplitude = 512;
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(SOUND_SENSOR_PIN, INPUT);
+
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password); 
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("Connected to WiFi");
+
+  // Connect to WebSocket server
+  webSocket.begin(websocketServerHost, websocketServerPort, "/");
+  webSocket.onEvent(webSocketEvent);
+}
+
+void loop() {
+  int sensorValue = digitalRead(SOUND_SENSOR_PIN);
+  String message;  // Create a String variable to hold the message
+
+  if (sensorValue == HIGH) {
+    float sineWaveValue = amplitude * (sin(phase));
+    int plotValue = (int)(sineWaveValue + amplitude);
+
+    // Convert plotValue to String and assign it to message
+    message = String(plotValue);
+
+    // Send data via WebSocket
+    webSocket.sendTXT(message);
+
+    phase += phaseIncrement;
+    if (phase > TWO_PI) {
+      phase -= TWO_PI;
+    }
+  } else {
+    phase = 0;
+    message = String(0);  // Assign zero to message
+    webSocket.sendTXT(message);  // Send the message
+  }
+
+  delay(100);
+  webSocket.loop();
+}
+
+void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
+  switch(type) {
+    case WStype_DISCONNECTED:
+      Serial.println("WebSocket disconnected");
+      break;
+    case WStype_CONNECTED:
+      Serial.println("WebSocket connected");
+      break;
+    case WStype_TEXT:
+      Serial.printf("Received message: %s\n", payload);
+      break;
+  }
+}
